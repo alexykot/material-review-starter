@@ -72,7 +72,7 @@ The agent runs on Claude Managed Agents: Anthropic hosts the agent loop and a sa
 5. **Follow it.** Open `client.beta.sessions.events.stream(sessionId)` first, then send the prompt with `client.beta.sessions.events.send(sessionId, { events: [{ type: "user.message", content: [...] }] })`. The session is done when you get `session.status_idle` with `stop_reason.type` other than `"requires_action"`, or `session.status_terminated`.
 6. **Get results back.** Pick one:
    - the text of the last `agent.message` event;
-   - files the agent writes to `/mnt/session/outputs/`, listed with `client.beta.files.list({ scope_id: sessionId, betas: ["managed-agents-2026-04-01"] })` (keep the ones with `downloadable: true`) and fetched with `client.beta.files.download(id)`;
+   - files the agent writes to `/mnt/session/outputs/`, listed with `client.beta.files.list({ scope_id: sessionId, betas: ["managed-agents-2026-04-01"] })` (keep the ones with `downloadable: true`) and fetched with `client.beta.files.download(id)`. Output files can take a few seconds to appear after the session goes idle, so retry the list briefly;
    - a custom tool (`{ type: "custom", name, description, input_schema }` in the agent's `tools`): the agent emits `agent.custom_tool_use`, your code handles it and replies with `user.custom_tool_result`.
 
 Every session also shows up in the Claude Console under Managed Agents → Sessions, with the full transcript.
