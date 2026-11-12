@@ -22,6 +22,9 @@ var ErrNotFound = errors.New("not found")
 
 type Store struct {
 	pool *pgxpool.Pool
+	db   *sql.DB // database/sql view of pool, for goose
+	// migrations knows the embedded migrations and reads the applied version.
+	migrations *goose.Provider
 }
 
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
@@ -33,28 +36,46 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("pinging postgres: %w", err)
 	}
-	return &Store{pool: pool}, nil
+	db := stdlib.OpenDBFromPool(pool)
+	provider, err := goose.NewProvider(goose.DialectPostgres, db, mustSub(migrations, "migrations"))
+	if err != nil {
+		db.Close()
+		pool.Close()
+		return nil, fmt.Errorf("creating migration provider: %w", err)
+	}
+	return &Store{pool: pool, db: db, migrations: provider}, nil
 }
 
-func (s *Store) Close() { s.pool.Close() }
-
-// Ping checks that the database answers.
-func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+func (s *Store) Close() {
+	s.db.Close()
+	s.pool.Close()
+}
 
 // Migrate applies all pending migrations from migrations/.
 func (s *Store) Migrate(ctx context.Context) error {
-	db := stdlib.OpenDBFromPool(s.pool)
-	defer db.Close()
-	return migrate(ctx, db)
+	if _, err := s.migrations.Up(ctx); err != nil {
+		return fmt.Errorf("applying migrations: %w", err)
+	}
+	return nil
 }
 
-func migrate(ctx context.Context, db *sql.DB) error {
-	provider, err := goose.NewProvider(goose.DialectPostgres, db, mustSub(migrations, "migrations"))
-	if err != nil {
-		return fmt.Errorf("creating migration provider: %w", err)
+// ErrSchemaBehind means the database has not had every migration this binary
+// ships with. The API's /healthz reports it, so a revision deployed ahead of
+// its migrations never becomes ready (cmd/migrate, or the Cloud Run migrate
+// job, has to run first).
+var ErrSchemaBehind = errors.New("database schema is behind this build")
+
+// Ready reports whether the database answers and has every migration applied.
+func (s *Store) Ready(ctx context.Context) error {
+	if err := s.pool.Ping(ctx); err != nil {
+		return fmt.Errorf("pinging postgres: %w", err)
 	}
-	if _, err := provider.Up(ctx); err != nil {
-		return fmt.Errorf("applying migrations: %w", err)
+	current, target, err := s.migrations.GetVersions(ctx)
+	if err != nil {
+		return fmt.Errorf("reading schema version: %w", err)
+	}
+	if current < target {
+		return fmt.Errorf("%w: database at version %d, build expects %d; run migrations", ErrSchemaBehind, current, target)
 	}
 	return nil
 }

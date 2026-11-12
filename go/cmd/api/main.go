@@ -44,7 +44,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(server.Deps{Auth: service.NewAuth(st), CookieSecure: cfg.CookieSecure, Ready: st.Ping}),
+		Handler:           server.New(server.Deps{Auth: service.NewAuth(st), CookieSecure: cfg.CookieSecure, Ready: st.Ready}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
