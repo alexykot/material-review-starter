@@ -80,6 +80,8 @@ export function createMockApi(options: MockApiOptions = {}): MockApi {
       queue.push(res);
       wake?.();
     });
+    const onAbort = () => wake?.();
+    signal.addEventListener("abort", onAbort);
     try {
       yield create(WatchPackResponseSchema, { update: { case: "packUpdated", value: pack } });
       const run = store.listRuns(packId)[0];
@@ -101,7 +103,6 @@ export function createMockApi(options: MockApiOptions = {}): MockApi {
             clearTimeout(timer);
             resolve(true);
           };
-          signal.addEventListener("abort", () => wake?.(), { once: true });
         });
         wake = undefined;
         if (!woken && !signal.aborted) {
@@ -109,6 +110,7 @@ export function createMockApi(options: MockApiOptions = {}): MockApi {
         }
       }
     } finally {
+      signal.removeEventListener("abort", onAbort);
       unsubscribe();
     }
   }

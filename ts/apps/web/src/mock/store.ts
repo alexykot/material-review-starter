@@ -28,6 +28,8 @@ import {
   type User,
   type WatchPackResponse,
 } from "@app/api";
+import { isActiveRun, isFinal } from "../format.ts";
+import { MAX_UPLOAD_BYTES } from "../queries/packs.ts";
 
 // MockStore is an in-memory stand-in for the backend, used only by the dev
 // mock (VITE_MOCK_API) and tests. It follows the behaviour the proto
@@ -61,22 +63,12 @@ export type NewIssue = {
   metadata?: Record<string, JsonValue>;
 };
 
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
-
 function failedPrecondition(message: string): never {
   throw new ConnectError(message, Code.FailedPrecondition);
 }
 
 function notFound(what: string): never {
   throw new ConnectError(`${what} not found`, Code.NotFound);
-}
-
-function isFinal(status: PackStatus) {
-  return status === PackStatus.APPROVED || status === PackStatus.CANCELLED;
-}
-
-function isActive(run: ReviewRun) {
-  return run.status === ReviewRunStatus.QUEUED || run.status === ReviewRunStatus.RUNNING;
 }
 
 function millis(ts: { seconds: bigint; nanos: number } | undefined): number {
@@ -269,7 +261,7 @@ export class MockStore {
 
   cancelPack(me: User, id: string, reason: string): Pack {
     const pack = this.mustWritablePack(id);
-    for (const run of this.listRuns(id)) if (isActive(run)) this.finishRun(run.id, ReviewRunStatus.CANCELLED);
+    for (const run of this.listRuns(id)) if (isActiveRun(run.status)) this.finishRun(run.id, ReviewRunStatus.CANCELLED);
     const now = this.now();
     this.commit({
       kind: "pack",
@@ -465,7 +457,7 @@ export class MockStore {
 
   startReview(me: User, packId: string): ReviewRun {
     this.mustWritablePack(packId);
-    if (this.listRuns(packId).some(isActive)) failedPrecondition("a review is already queued or running");
+    if (this.listRuns(packId).some((r) => isActiveRun(r.status))) failedPrecondition("a review is already queued or running");
     const ready = [...this.docs.values()].some(
       (d) => d.doc.packId === packId && d.doc.status === DocumentStatus.READY,
     );
@@ -495,7 +487,7 @@ export class MockStore {
 
   cancelReviewRun(id: string): ReviewRun {
     const run = this.mustRun(id);
-    if (!isActive(run)) failedPrecondition("the review is not running");
+    if (!isActiveRun(run.status)) failedPrecondition("the review is not running");
     return this.finishRun(id, ReviewRunStatus.CANCELLED);
   }
 }

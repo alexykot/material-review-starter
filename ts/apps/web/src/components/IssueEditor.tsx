@@ -55,9 +55,9 @@ export function diffFields(issue: Issue, form: IssueForm): IssueFields {
   const fields: IssueFields = {};
   if (form.status !== before.status) fields.status = form.status;
   if (form.severity !== before.severity) fields.severity = form.severity;
-  if (form.title.trim() !== before.title) fields.title = form.title.trim();
-  if (form.description.trim() !== before.description) fields.description = form.description.trim();
-  if (form.evidence.trim() !== before.evidence) fields.evidence = form.evidence.trim();
+  if (form.title.trim() !== before.title.trim()) fields.title = form.title.trim();
+  if (form.description.trim() !== before.description.trim()) fields.description = form.description.trim();
+  if (form.evidence.trim() !== before.evidence.trim()) fields.evidence = form.evidence.trim();
   const ref = specRefOf(form);
   const oldRef = specRefOf(before);
   if (
