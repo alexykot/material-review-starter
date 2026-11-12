@@ -59,15 +59,25 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
+type UserKind string
+
+const (
+	UserKindHuman UserKind = "human"
+	UserKindAgent UserKind = "agent"
+)
+
+// User is a row of auth.users. The JSON tags let queries return users as
+// jsonb objects (see userJSON).
 type User struct {
-	ID           string
-	Name         string
-	Email        string
-	PasswordHash string
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Email        string   `json:"email"` // empty for the agent
+	Kind         UserKind `json:"kind"`
+	PasswordHash string   `json:"-"`
 }
 
 func (s *Store) CreateUser(ctx context.Context, name, email, passwordHash string) (User, error) {
-	u := User{Name: name, Email: email, PasswordHash: passwordHash}
+	u := User{Name: name, Email: email, Kind: UserKindHuman, PasswordHash: passwordHash}
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO auth.users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id`,
 		name, email, passwordHash,
@@ -81,8 +91,9 @@ func (s *Store) CreateUser(ctx context.Context, name, email, passwordHash string
 func (s *Store) UserByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, name, email, password_hash FROM auth.users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash)
+		`SELECT id, name, email, password_hash, kind FROM auth.users
+		  WHERE email = $1 AND kind = 'human'`, email,
+	).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.Kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -107,10 +118,10 @@ func (s *Store) CreateSession(ctx context.Context, tokenHash []byte, userID stri
 func (s *Store) UserBySession(ctx context.Context, tokenHash []byte) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`SELECT u.id, u.name, u.email, u.password_hash
+		`SELECT u.id, u.name, u.email, u.password_hash, u.kind
 		   FROM auth.sessions s JOIN auth.users u ON u.id = s.user_id
-		  WHERE s.token_hash = $1 AND s.expires_at > now()`, tokenHash,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash)
+		  WHERE s.token_hash = $1 AND s.expires_at > now() AND u.kind = 'human'`, tokenHash,
+	).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.Kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
