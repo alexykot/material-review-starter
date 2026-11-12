@@ -76,7 +76,7 @@ func run() error {
 			Hub:          hub,
 			Store:        st,
 			CookieSecure: cfg.CookieSecure,
-			Ready:        st.Ping,
+			Ready:        st.Ready,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		// Stream (WatchPack) contexts end with the server's base context, so
