@@ -42,8 +42,9 @@
 # are unique across environments, so the two name the same thing. Only `wt create` is a slug and nothing
 # else: it names an environment that does not exist yet.
 #
-# `rebase` is the only command that takes a list. Everywhere else a second environment is an error, not
-# a batch and not the last one winning — see require_one_env in lib/common.sh for why.
+# `rebase` is the only command that takes a list. The destructive single-environment commands (merge, rm,
+# reset-db, promote, demote, resume, and create) refuse a second environment rather than batching it or
+# letting the last one win — see require_one_env in lib/common.sh for why.
 #
 # Requires bash 3.2 (what macOS ships), git, jq, envsubst, gh, process-compose, pnpm, go, curl and nc,
 # plus the docker-compose Postgres and MinIO running (make setup). See tools/wt/CLAUDE.md.

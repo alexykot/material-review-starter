@@ -52,6 +52,7 @@ resource "google_storage_bucket" "documents" {
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
   labels                      = local.labels
+  depends_on                  = [google_project_service.apis]
 }
 
 # Secret containers only. Values are added out of band

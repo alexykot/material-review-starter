@@ -355,8 +355,8 @@ pr_sync() {
 	fi
 	[[ -n $state ]] || state=$PR_STATE_NONE
 
-	state_set "$slug" \
-		".pr.state = \"$state\" | .pr.number = $number | .pr.url = \"$url\" | .pr.checked_at = $now"
+	state_set "$slug" '.pr.state = $state | .pr.number = $number | .pr.url = $url | .pr.checked_at = $now' \
+		--arg state "$state" --argjson number "$number" --arg url "$url" --argjson now "$now"
 }
 
 # pr_state prints the GitHub PR state for an environment's branch (OPEN, MERGED, CLOSED or NONE).

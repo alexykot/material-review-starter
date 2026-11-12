@@ -39,7 +39,7 @@ resources_names() { devenv names "$1"; }
 resources_destroy() {
 	local slug=$1
 	devenv destroy "$slug" >/dev/null 2>&1 ||
-		warn "could not drop ${slug}'s database or bucket (are Postgres and MinIO up?); finish with: (cd go && go run ./cmd/devenv destroy ${slug})"
+		warn "could not drop ${slug}'s database or bucket (are Postgres and MinIO up?); finish with: (cd $(primary_root)/go && go run ./cmd/devenv destroy ${slug})"
 }
 
 # resources_seed runs the worktree's own migrations and seed against the environment's database and

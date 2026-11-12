@@ -6,9 +6,8 @@
 # hooks directory, so this single hook serves every environment. It is a no-op in the primary
 # checkout and in any worktree that has no running environment.
 #
-# Any hook that was already installed is moved aside to
-# post-commit.pre-wt at install time and chain-called here first, so installing `wt` never disables
-# it. We exit with that hook's status; git ignores a post-commit exit code, but the status is the
+# Any hook that was already installed is moved aside to post-commit.pre-wt at install time and
+# chain-called here first, so installing `wt` never disables it. We exit with that hook's status; git ignores a post-commit exit code, but the status is the
 # honest thing to propagate.
 #
 # Our own restart is backgrounded and its errors swallowed: a commit must never fail, nor block for
