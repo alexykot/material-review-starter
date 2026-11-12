@@ -113,7 +113,7 @@ func (s *Store) UserByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
 		`SELECT id, name, email, password_hash, kind FROM auth.users
-		  WHERE email = $1 AND kind = 'human'`, email,
+		  WHERE lower(email) = lower($1) AND kind = 'human'`, email,
 	).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.Kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
