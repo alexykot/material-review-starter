@@ -49,6 +49,30 @@ func (s *Storage) EnsureBucket(ctx context.Context) error {
 	return nil
 }
 
+// DeleteBucket removes the bucket and everything in it. A missing bucket is
+// not an error. Only for throwaway local buckets (tools/wt teardown).
+func (s *Storage) DeleteBucket(ctx context.Context) error {
+	exists, err := s.client.BucketExists(ctx, s.bucket)
+	if err != nil {
+		return fmt.Errorf("checking bucket %s: %w", s.bucket, err)
+	}
+	if !exists {
+		return nil
+	}
+	if err := s.client.RemoveBucketWithOptions(ctx, s.bucket, minio.RemoveBucketOptions{ForceDelete: true}); err != nil {
+		return fmt.Errorf("deleting bucket %s: %w", s.bucket, err)
+	}
+	return nil
+}
+
+// Ping checks that the object store answers.
+func (s *Storage) Ping(ctx context.Context) error {
+	if _, err := s.client.ListBuckets(ctx); err != nil {
+		return fmt.Errorf("reaching object storage: %w", err)
+	}
+	return nil
+}
+
 func (s *Storage) Upload(ctx context.Context, key string, body []byte, contentType string) error {
 	_, err := s.client.PutObject(ctx, s.bucket, key, bytes.NewReader(body), int64(len(body)),
 		minio.PutObjectOptions{ContentType: contentType})

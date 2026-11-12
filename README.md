@@ -80,6 +80,23 @@ App tables are yours to design. Login tables live in the `auth` schema (`auth.us
 
 If you ran the earlier TypeScript version of this starter, its Better Auth tables (`auth.user`, `auth.session`, ...) are still in your Postgres volume. They are unused; `docker compose down -v` clears them.
 
+## Parallel environments (`wt`)
+
+`tools/wt` runs several branches side by side, each in its own git worktree with its own database,
+bucket and ports, so they can be built and checked end to end at the same time:
+
+```bash
+source tools/wt/shellrc          # once, from your shell profile: gives you `wt`
+wt doctor                        # check prerequisites (needs make setup and a .env)
+wt create upload-form            # worktree ../material-review-starter-upload-form on feature/upload-form
+wt up upload-form                # API on :8797, web on :5190 (slot 1)
+wt list                          # every environment, its URLs and its PR
+wt merge upload-form             # merge the PR, advance main, tear the environment down
+wt install-hooks                 # optional: restart the API on commit, reap merged envs on pull
+```
+
+`tools/wt/CLAUDE.md` is the full reference.
+
 ## Make targets
 
 | Target             | What it does                                              |
@@ -91,6 +108,8 @@ If you ran the earlier TypeScript version of this starter, its Better Auth table
 | `make test`        | Go and TS tests                                           |
 | `make agent-setup` | Creates or updates the agent and environment              |
 | `make tf-plan`     | `terraform plan` for `ENV` (default `dev`)                |
+| `make wt …`        | Worktree environments (flagless; use `tools/wt/wt.sh` for flags) |
+| `make test-wt`     | The `wt` tool's own test suites                           |
 
 ## Ports
 

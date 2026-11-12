@@ -32,8 +32,9 @@ type S3 struct {
 	Bucket          string
 }
 
-// Load reads the .env file (if one is found) into the process environment
-// without overriding variables that are already set, then builds a Config.
+// Load reads the env file (ENV_FILE if set, else the nearest .env walking up
+// from the working directory) into the process environment without
+// overriding variables that are already set, then builds a Config.
 func Load() (Config, error) {
 	if path, ok := FindEnvFile(); ok {
 		if err := loadEnvFile(path); err != nil {
@@ -72,8 +73,13 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-// FindEnvFile walks up from the working directory looking for a .env file.
+// FindEnvFile returns ENV_FILE when it is set, so a worktree environment
+// (tools/wt) can point every command at its own rendered settings. Otherwise
+// it walks up from the working directory looking for a .env file.
 func FindEnvFile() (string, bool) {
+	if path := os.Getenv("ENV_FILE"); path != "" {
+		return path, true
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", false

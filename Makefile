@@ -39,6 +39,7 @@ lint: ## Lint proto, Go, TS and Terraform
 	@test -z "$$(cd go && gofmt -l cmd internal)" || (echo "gofmt needed:"; cd go && gofmt -l cmd internal; exit 1)
 	cd ts && pnpm typecheck
 	terraform -chdir=terraform fmt -check -recursive
+	bash -n tools/wt/wt.sh tools/wt/lib/*.sh tools/wt/hooks/* tools/wt/test_*.sh
 
 .PHONY: breaking
 breaking: ## Check proto/ for breaking changes against main
@@ -58,7 +59,25 @@ build: ## Build the API binary and the web bundle
 check-gen: gen ## Fail if generated code is out of date (CI)
 	git diff --exit-code -- go/gen ts/packages/api/src/gen
 
+.PHONY: wt
+wt: ## Worktree environments: make wt <cmd> <slug> (no --flags; use tools/wt/wt.sh for those)
+	@./tools/wt/wt.sh $(filter-out $@,$(MAKECMDGOALS))
+
+.PHONY: test-wt
+test-wt: ## Run the wt tool's own test suites (slow; not part of make test)
+	./tools/wt/test_slots.sh
+	./tools/wt/test_resolve.sh
+	./tools/wt/test_env_args.sh
+	./tools/wt/test_promote.sh
+
 .PHONY: tf-plan
 tf-plan: ## terraform plan for ENV (default dev). Never apply from here.
 	terraform -chdir=terraform/envs/$(ENV) init
 	terraform -chdir=terraform/envs/$(ENV) plan
+
+# `make wt up smoke` passes `up` and `smoke` as extra goals; this rule swallows them so make does not
+# try to build them. Only applies when `wt` is the first goal.
+ifeq (wt,$(firstword $(MAKECMDGOALS)))
+%:
+	@:
+endif

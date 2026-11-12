@@ -1,0 +1,41 @@
+# tools/wt/shellrc — source this from your shell profile to get a `wt` command:
+#
+#   source /path/to/material-review-starter/tools/wt/shellrc
+#   wt create foo --type docs      # forwards every arg and --flag to wt.sh
+#   wt rm foo --force
+#   wt list --refresh
+#   wt cd foo                      # only works via this function, not `make wt cd`
+#
+# It exists because `make wt …` cannot pass --flags: make rejects `--type`/`--force`/etc.
+# in its own argument parser and aborts before the recipe runs. This function has no such
+# limitation — it hands the whole command line straight to wt.sh. Works in bash and zsh.
+
+if [ -n "${BASH_SOURCE:-}" ]; then
+	_wt_self="${BASH_SOURCE[0]}"       # bash: $0 is the shell, BASH_SOURCE is the file
+else
+	_wt_self="$0"                      # zsh: $0 is the sourced file
+fi
+_wt_dir="$(cd "$(dirname "$_wt_self")" >/dev/null 2>&1 && pwd)"
+
+# Bake the resolved absolute path into the function body so the temporaries can be unset
+# and the function keeps working after this file's scope is gone.
+#
+# `wt cd` is handled here rather than in wt.sh because only a shell can change its own working
+# directory; a child process cannot do it on the shell's behalf. wt.sh still decides where to go
+# (`wt path`), so the two cannot disagree about the destination — this only performs the cd.
+eval "wt() {
+	if [ \"\${1:-}\" = cd ]; then
+		shift
+		local _wt_dest
+		# A failure has already explained itself on stderr, so just pass the status up. The
+		# emptiness guard is belt and braces: \`cd \"\"\` succeeds and stays put, so a path that
+		# somehow came back blank would otherwise look like a \`wt cd\` that worked and did nothing.
+		_wt_dest=\$(\"$_wt_dir/wt.sh\" path \"\$@\") || return \$?
+		[ -n \"\$_wt_dest\" ] || return 1
+		cd \"\$_wt_dest\"
+	else
+		\"$_wt_dir/wt.sh\" \"\$@\"
+	fi
+}"
+
+unset _wt_self _wt_dir

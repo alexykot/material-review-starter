@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Restarts the committing worktree's local API so its deployment tracks the branch.
+#
+# Installed as .git/hooks/post-commit by `wt install-hooks`. Worktrees share the primary checkout's
+# hooks directory, so this single hook serves every environment. It is a no-op in the primary
+# checkout and in any worktree that has no running environment.
+#
+# Any hook that was already installed is moved aside to
+# post-commit.pre-wt at install time and chain-called here first, so installing `wt` never disables
+# it. We exit with that hook's status; git ignores a post-commit exit code, but the status is the
+# honest thing to propagate.
+#
+# Our own restart is backgrounded and its errors swallowed: a commit must never fail, nor block for
+# the Go rebuild and migration it triggers, because of this hook.
+
+set -uo pipefail
+
+hooks_dir=$(git rev-parse --git-path hooks 2>/dev/null) || exit 0
+chained="$hooks_dir/post-commit.pre-wt"
+
+chained_status=0
+if [[ -x $chained ]]; then
+	"$chained" "$@" || chained_status=$?
+fi
+
+top=$(git rev-parse --show-toplevel 2>/dev/null) || exit "$chained_status"
+wt="$top/tools/wt/wt.sh"
+[[ -x $wt ]] || exit "$chained_status"
+
+nohup "$wt" on-commit "$top" >/dev/null 2>&1 &
+
+exit "$chained_status"

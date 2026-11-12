@@ -38,6 +38,9 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 
 func (s *Store) Close() { s.pool.Close() }
 
+// Ping checks that the database answers.
+func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+
 // Migrate applies all pending migrations from migrations/.
 func (s *Store) Migrate(ctx context.Context) error {
 	db := stdlib.OpenDBFromPool(s.pool)

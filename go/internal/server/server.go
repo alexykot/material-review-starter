@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,9 @@ import (
 type Deps struct {
 	Auth         *service.Auth
 	CookieSecure bool
+	// Ready reports whether the API's dependencies (the database) answer.
+	// /healthz returns 503 when it fails, so "healthy" means able to serve.
+	Ready func(context.Context) error
 }
 
 // New returns the HTTP handler for the whole API. Connect services are
@@ -23,8 +27,16 @@ func New(d Deps) http.Handler {
 	api.Handle(authv1connect.NewAuthServiceHandler(NewAuthHandler(d.Auth, d.CookieSecure)))
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if d.Ready != nil {
+			if err := d.Ready(r.Context()); err != nil {
+				slog.ErrorContext(r.Context(), "health check failed", "err", err)
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"ok":false}`))
+				return
+			}
+		}
 		w.Write([]byte(`{"ok":true}`))
 	})
 	mux.Handle("/api/", http.StripPrefix("/api", api))
