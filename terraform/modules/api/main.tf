@@ -1,0 +1,72 @@
+# Cloud Run service for the Go API, with its own service account and
+# read access to the secrets it mounts as env vars.
+
+resource "google_service_account" "api" {
+  project      = var.project_id
+  account_id   = "${var.name}-api"
+  display_name = "${var.name} API (Cloud Run)"
+}
+
+resource "google_secret_manager_secret_iam_member" "api" {
+  for_each = var.secret_env
+
+  project   = var.project_id
+  secret_id = each.value
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_cloud_run_v2_service" "api" {
+  project  = var.project_id
+  name     = "${var.name}-api"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+  labels   = var.labels
+
+  template {
+    service_account = google_service_account.api.email
+    labels          = var.labels
+
+    scaling {
+      min_instance_count = var.min_instances
+      max_instance_count = var.max_instances
+    }
+
+    containers {
+      image = var.image
+
+      ports {
+        container_port = 8080
+      }
+
+      dynamic "env" {
+        for_each = var.env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.secret_env
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      startup_probe {
+        http_get {
+          path = "/healthz"
+        }
+      }
+    }
+  }
+
+  depends_on = [google_secret_manager_secret_iam_member.api]
+}
